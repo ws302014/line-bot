@@ -13,7 +13,7 @@ import random
 
 app = Flask(__name__)
 
-# LINE環境變數
+# LINE 環境變數
 CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
@@ -39,20 +39,33 @@ def callback():
         abort(400)
     return 'OK'
 
-# 使用者輸入文字
+# 使用者文字互動
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text(event):
     text = event.message.text.strip()
 
-    # Step 1：輸入「預測」
+    # Step 1：輸入「預測」時顯示按鈕
     if text in ["預測", "開始", "測試"]:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="請上傳牌勢圖片 📸")
+        buttons_template = TemplateSendMessage(
+            alt_text='預測選項',
+            template=ButtonsTemplate(
+                title="請選擇動作👇",
+                text="請上傳牌勢圖片或直接選擇狀況：",
+                actions=[
+                    MessageTemplateAction(label="大牌多", text="大牌多"),
+                    MessageTemplateAction(label="小牌多", text="小牌多"),
+                    MessageTemplateAction(label="一樣多", text="一樣多"),
+                    MessageTemplateAction(label="公天牌", text="公天牌"),
+                    MessageTemplateAction(label="點天牌", text="點天牌"),
+                    MessageTemplateAction(label="和大牌", text="和大牌"),
+                    MessageTemplateAction(label="和小牌", text="和小牌")
+                ]
+            )
         )
+        line_bot_api.reply_message(event.reply_token, buttons_template)
         return
 
-    # Step 2：依據使用者選擇的補充資訊調整機率
+    # Step 2：按鈕回傳後進行預測
     if event.source.user_id in user_results:
         banker_prob, player_prob = user_results[event.source.user_id]
 
@@ -77,7 +90,9 @@ def handle_text(event):
             if banker_prob > 95: banker_prob = 95
             if player_prob > 95: player_prob = 95
 
-            result = f"最終預測：\n莊機率：{banker_prob}%\n閒機率：{player_prob}%"
+            # 依據最終機率決定結果
+            result_side = "莊" if banker_prob >= player_prob else "閒"
+            result = f"📊 最終預測結果：{result_side}\n莊：{banker_prob}%　閒：{player_prob}%"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result))
             del user_results[event.source.user_id]
         else:
@@ -95,33 +110,19 @@ def handle_image(event):
     text = pytesseract.image_to_string(img, lang='eng').upper().replace(" ", "")
     print("偵測到文字：", text)
 
-    # 計算分數
-    total = 0
-    for key, val in score_map.items():
-        total += text.count(key) * val
+    # 隨機預測（模擬初步分析）
+    banker_prob = random.randint(45, 70)
+    player_prob = 100 - banker_prob
 
-    # 初步莊閒機率
-    if total > 0:
-        banker_prob = 60 + total * 2
-        player_prob = 100 - banker_prob
-    elif total < 0:
-        player_prob = 60 + abs(total) * 2
-        banker_prob = 100 - player_prob
-    else:
-        banker_prob = 55
-        player_prob = 45
-
-    if banker_prob > 95: banker_prob = 95
-    if player_prob > 95: player_prob = 95
-
+    # 暫存初步預測結果
     user_results[event.source.user_id] = (banker_prob, player_prob)
 
-    # 回覆初步結果 + 按鈕選擇
+    # 回覆結果 + 按鈕
     buttons_template = TemplateSendMessage(
-        alt_text='選擇牌勢',
+        alt_text='初步預測結果',
         template=ButtonsTemplate(
-            title="請選擇牌勢狀況👇",
-            text=f"初步預測：莊 {banker_prob}% / 閒 {player_prob}%",
+            title="初步預測結果 👇",
+            text=f"莊 {banker_prob}%　閒 {player_prob}%\n請選擇牌勢狀況以修正預測：",
             actions=[
                 MessageTemplateAction(label="大牌多", text="大牌多"),
                 MessageTemplateAction(label="小牌多", text="小牌多"),
@@ -138,7 +139,7 @@ def handle_image(event):
 
 @app.route('/')
 def home():
-    return 'LINE OCR 百家樂預測 Bot is running!'
+    return 'LINE 百家樂預測 Bot 正在運行！'
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
