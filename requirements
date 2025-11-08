@@ -1,6 +1,5 @@
 flask
 line-bot-sdk
 pytesseract
-pillow
-requests
-gunicorn
+Pillow
+opencv-python
