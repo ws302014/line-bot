@@ -33,7 +33,8 @@ def home():
 def callback():
     signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
-
+print("收到 LINE webhook!")  
+    print("Body:", body) 
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
