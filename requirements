@@ -1,5 +1,5 @@
-flask
+Flask
 line-bot-sdk
-pytesseract
-Pillow
-opencv-python
+pillow
+numpy
+gunicorn
